@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+
+    <!-- Bannerlord game version this branch targets. Bump in lockstep with
+         Bannerlord.ReferenceAssemblies package versions in csproj. -->
+    <BannerlordGameVersion>1.2.12</BannerlordGameVersion>
+    <BannerlordReferenceAssembliesVersion>1.2.12.39612-final</BannerlordReferenceAssembliesVersion>
+
+    <ModuleName>Bannerlords.Coop</ModuleName>
+    <ModuleId>Bannerlords.Coop</ModuleId>
+    <ModuleVersion>0.0.1</ModuleVersion>
+  </PropertyGroup>
+</Project>

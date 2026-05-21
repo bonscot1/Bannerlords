@@ -1,0 +1,38 @@
+name: build
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Restore
+        run: dotnet restore Bannerlords.Coop.sln
+
+      - name: Build (Release)
+        run: dotnet build Bannerlords.Coop.sln -c Release --no-restore
+
+      - name: Upload module artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bannerlords.Coop
+          path: |
+            src/Bannerlords.Coop/bin/Release/Bannerlords.Coop.dll
+            src/Bannerlords.Coop/bin/Release/Bannerlords.Coop.pdb
+            src/Bannerlords.Coop/SubModule.xml
+            src/Bannerlords.Coop/bin/Release/0Harmony.dll
+            src/Bannerlords.Coop/bin/Release/Steamworks.NET.dll
+          if-no-files-found: warn

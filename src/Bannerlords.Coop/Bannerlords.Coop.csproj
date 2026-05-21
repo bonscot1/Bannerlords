@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>Bannerlords.Coop</AssemblyName>
+    <RootNamespace>Bannerlords.Coop</RootNamespace>
+    <Configurations>Debug;Release</Configurations>
+    <Platforms>AnyCPU</Platforms>
+    <DebugType>portable</DebugType>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- We don't want the SDK to copy the TaleWorlds reference DLLs into our
+         output dir; the game provides them at runtime. -->
+    <DisableImplicitFrameworkReferences>false</DisableImplicitFrameworkReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Harmony for runtime patches. -->
+    <PackageReference Include="Lib.Harmony" Version="2.3.3" PrivateAssets="all" />
+
+    <!-- Steamworks.NET wraps the steam_api.dll the game itself loads.
+         PrivateAssets=all so it's copied next to our DLL. -->
+    <PackageReference Include="Steamworks.NET" Version="20.2.0" />
+
+    <!-- BUTR reference assemblies for TaleWorlds. ExcludeAssets=runtime so
+         the game's real DLLs are used at runtime, not these reference-only
+         versions. Version is governed by Directory.Build.props. -->
+    <PackageReference Include="Bannerlord.ReferenceAssemblies.Core"
+                      Version="$(BannerlordReferenceAssembliesVersion)"
+                      ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Bannerlord.ReferenceAssemblies.Native"
+                      Version="$(BannerlordReferenceAssembliesVersion)"
+                      ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Bannerlord.ReferenceAssemblies.CampaignSystem"
+                      Version="$(BannerlordReferenceAssembliesVersion)"
+                      ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Bannerlord.ReferenceAssemblies.MountAndBlade"
+                      Version="$(BannerlordReferenceAssembliesVersion)"
+                      ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Bannerlord.ReferenceAssemblies.Engine"
+                      Version="$(BannerlordReferenceAssembliesVersion)"
+                      ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Bannerlord.ReferenceAssemblies.Library"
+                      Version="$(BannerlordReferenceAssembliesVersion)"
+                      ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Bannerlord.ReferenceAssemblies.InputSystem"
+                      Version="$(BannerlordReferenceAssembliesVersion)"
+                      ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Bannerlord.ReferenceAssemblies.Localization"
+                      Version="$(BannerlordReferenceAssembliesVersion)"
+                      ExcludeAssets="runtime" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="SubModule.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
