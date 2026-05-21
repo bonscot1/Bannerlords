@@ -7,6 +7,9 @@
     <Configurations>Debug;Release</Configurations>
     <Platforms>AnyCPU</Platforms>
     <DebugType>portable</DebugType>
+    <!-- Needed for zero-alloc float/uint reinterpret in PacketBuffer.
+         .NET 6's BitConverter.SingleToUInt32Bits isn't available on net472. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <!-- We don't want the SDK to copy the TaleWorlds reference DLLs into our
          output dir; the game provides them at runtime. -->
