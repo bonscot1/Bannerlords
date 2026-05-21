@@ -1,6 +1,5 @@
 using Bannerlords.Coop.Network.Session;
 using Bannerlords.Coop.Util;
-using Steamworks;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.Localization;
@@ -48,8 +47,10 @@ namespace Bannerlords.Coop.UI
 
         private static string LocalPersona()
         {
-            try { return SteamFriends.GetPersonaName(); }
-            catch { return "Player"; }
+            // TODO: replace with the Steam wrapper's persona-name call once
+            // SteamP2PTransport is wired (see that file for the open
+            // wrapper-choice question).
+            return "Player";
         }
 
         // ---------- option handlers ----------
@@ -80,7 +81,7 @@ namespace Bannerlords.Coop.UI
 
         // ---------- lobby callbacks ----------
 
-        private static void OnHostedLobbyReady(CSteamID lobby)
+        private static void OnHostedLobbyReady(ulong lobbySteamId)
         {
             // Pop the invite overlay as a convenience when the host's lobby
             // is ready.

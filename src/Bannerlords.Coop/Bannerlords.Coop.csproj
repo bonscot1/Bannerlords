@@ -17,9 +17,13 @@
     <!-- Harmony for runtime patches. -->
     <PackageReference Include="Lib.Harmony" Version="2.3.3" PrivateAssets="all" />
 
-    <!-- Steamworks.NET wraps the steam_api.dll the game itself loads.
-         PrivateAssets=all so it's copied next to our DLL. -->
-    <PackageReference Include="Steamworks.NET" Version="20.2.0" />
+    <!-- Steam wrapper deferred: Steamworks.NET 20.x dropped net4x targets
+         and only ships netstandard2.1, which Bannerlord's net472 process
+         cannot consume. The net472-compatible alternative is
+         Facepunch.Steamworks 2.3.3, but it has a different API surface so
+         we're stubbing the Steam transport for now and will wire it in
+         with a follow-up commit. The loopback transport keeps the rest of
+         the M0 plumbing testable in the meantime. -->
 
     <!-- BUTR reference assemblies for TaleWorlds. ExcludeAssets=runtime so
          the game's real DLLs are used at runtime, not these reference-only

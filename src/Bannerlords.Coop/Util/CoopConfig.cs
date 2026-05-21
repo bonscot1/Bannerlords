@@ -32,8 +32,11 @@ namespace Bannerlords.Coop.Util
         public int NetworkTickRate { get; set; } = 20;
 
         /// <summary>If true, transport falls back to in-process loopback
-        /// (useful for unit tests and devloop without Steam running).</summary>
-        public bool UseLoopbackTransport { get; set; } = false;
+        /// (useful for unit tests and devloop without Steam running).
+        /// Defaulted to true while the Steam wrapper choice is pending
+        /// (see <c>SteamP2PTransport.cs</c>); flip back to false once
+        /// the Steam transport is wired.</summary>
+        public bool UseLoopbackTransport { get; set; } = true;
 
         public static CoopConfig Default => new CoopConfig();
     }
