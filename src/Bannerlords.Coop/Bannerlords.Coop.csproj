@@ -23,29 +23,17 @@
 
     <!-- BUTR reference assemblies for TaleWorlds. ExcludeAssets=runtime so
          the game's real DLLs are used at runtime, not these reference-only
-         versions. Version is governed by Directory.Build.props. -->
+         versions. Version is governed by Directory.Build.props.
+         BUTR splits these packages by Bannerlord *module*, not by TaleWorlds
+         assembly: the "Core" package contains TaleWorlds.Core,
+         TaleWorlds.CampaignSystem, TaleWorlds.MountAndBlade,
+         TaleWorlds.Engine, TaleWorlds.Library, TaleWorlds.Localization,
+         TaleWorlds.InputSystem, etc. Add "SandBox" / "StoryMode" / etc. only
+         if we start referencing types from those modules. -->
     <PackageReference Include="Bannerlord.ReferenceAssemblies.Core"
                       Version="$(BannerlordReferenceAssembliesVersion)"
                       ExcludeAssets="runtime" PrivateAssets="all" />
     <PackageReference Include="Bannerlord.ReferenceAssemblies.Native"
-                      Version="$(BannerlordReferenceAssembliesVersion)"
-                      ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Bannerlord.ReferenceAssemblies.CampaignSystem"
-                      Version="$(BannerlordReferenceAssembliesVersion)"
-                      ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Bannerlord.ReferenceAssemblies.MountAndBlade"
-                      Version="$(BannerlordReferenceAssembliesVersion)"
-                      ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Bannerlord.ReferenceAssemblies.Engine"
-                      Version="$(BannerlordReferenceAssembliesVersion)"
-                      ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Bannerlord.ReferenceAssemblies.Library"
-                      Version="$(BannerlordReferenceAssembliesVersion)"
-                      ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Bannerlord.ReferenceAssemblies.InputSystem"
-                      Version="$(BannerlordReferenceAssembliesVersion)"
-                      ExcludeAssets="runtime" PrivateAssets="all" />
-    <PackageReference Include="Bannerlord.ReferenceAssemblies.Localization"
                       Version="$(BannerlordReferenceAssembliesVersion)"
                       ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
