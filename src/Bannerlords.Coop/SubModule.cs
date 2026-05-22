@@ -6,6 +6,9 @@ using Bannerlords.Coop.UI;
 using Bannerlords.Coop.Util;
 using Bannerlords.Coop.Network.Packets;
 using Bannerlords.Coop.Network.Voting;
+using TaleWorlds.Core;
+using TaleWorlds.InputSystem;
+using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 
 namespace Bannerlords.Coop
@@ -42,7 +45,7 @@ namespace Bannerlords.Coop
                 RegisterPackets();
                 HarmonyBootstrap.Apply();
 
-                var config = CoopConfig.Default;
+                var config = ConfigLoader.LoadOrDefault(GetModuleDir());
                 _session = new CoopSession(config);
             }
             catch (Exception ex)
@@ -75,6 +78,47 @@ namespace Bannerlords.Coop
             base.OnApplicationTick(dt);
             try { _session?.Tick(dt); }
             catch (Exception ex) { Log.Error("SubModule.Tick", ex); }
+            try { PollHotkeys(); }
+            catch (Exception ex) { Log.Error("SubModule.Hotkeys", ex); }
+        }
+
+        // F8 hosts; F9 joins. Both work from anywhere (main menu or in
+        // campaign). Re-pressing the same key while the session is live
+        // disconnects. Hotkeys are the easiest way for users to trigger
+        // a coop session after a save has loaded (MainMenuHooks works too
+        // but races with campaign load — SoldierAttachment needs MainParty
+        // to exist).
+        private void PollHotkeys()
+        {
+            if (_session == null) return;
+            if (Input.IsKeyPressed(InputKey.F8)) ToggleHost();
+            if (Input.IsKeyPressed(InputKey.F9)) ToggleJoin();
+        }
+
+        private void ToggleHost()
+        {
+            if (_session.State != SessionState.Idle)
+            {
+                _session.Disconnect(DisconnectReason.UserQuit, "F8 toggled off");
+                InformationManager.DisplayMessage(new InformationMessage("Coop: disconnected."));
+                return;
+            }
+            if (!_session.StartHost("Host")) return;
+            InformationManager.DisplayMessage(new InformationMessage(
+                $"Coop: hosting on port {_session.Config.ListenPort}. F8 again to stop."));
+        }
+
+        private void ToggleJoin()
+        {
+            if (_session.State != SessionState.Idle)
+            {
+                _session.Disconnect(DisconnectReason.UserQuit, "F9 toggled off");
+                InformationManager.DisplayMessage(new InformationMessage("Coop: disconnected."));
+                return;
+            }
+            if (!_session.JoinHost("Client")) return;
+            InformationManager.DisplayMessage(new InformationMessage(
+                $"Coop: connecting to {_session.Config.JoinAddress}:{_session.Config.JoinPort}. F9 again to cancel."));
         }
 
         // ---------- teardown ----------

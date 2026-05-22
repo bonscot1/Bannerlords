@@ -39,9 +39,19 @@ speed updates the other's clock.
   call-sites lands in M0.7.
 - `SoldierAttachment` — when a client joins, host inserts a placeholder
   troop into `MainParty.MemberRoster` with the client's persona name.
-- `MainMenuHooks` — adds "Host coop game" / "Join coop game" entries.
-  M0 uses config-driven IP/port; a proper address-input dialog ships
-  with the M1 lobby screen.
+  Attaches are queued if no campaign is loaded yet at handshake time and
+  drained on the first tick where `Campaign.Current` exists.
+- `MainMenuHooks` + F8/F9 hotkeys — main-menu entries trigger host/join
+  before a campaign is loaded; F8/F9 toggle the same actions from inside
+  a campaign. The in-campaign hotkey is the recommended M0 flow because
+  the soldier attach fires immediately rather than queueing.
+- `ConfigLoader` — reads `coopconfig.json` from the module directory at
+  load time. Falls back to built-in defaults when missing. A sample
+  config ships at `dist/Bannerlords.Coop/coopconfig.sample.json`.
+- Drop-in packaging: build output lands in `dist/Bannerlords.Coop/`,
+  which is the exact layout Bannerlord expects under `Modules/`. The
+  user copies one folder and edits `coopconfig.json` — no other
+  install steps.
 - CI workflow that runs `dotnet restore && dotnet build -c Release` on
   every PR.
 

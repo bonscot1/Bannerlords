@@ -1,0 +1,20 @@
+{
+  "_comment_": "Copy this file to coopconfig.json (in the same folder) before launching the game. Both players need their own copy with matching ListenPort/JoinPort/ConnectionKey but their own correct addresses.",
+
+  "Mode": "CompanionInArmy",
+  "MaxPlayers": 4,
+
+  "ListenPort": 9000,
+  "JoinAddress": "127.0.0.1",
+  "JoinPort": 9000,
+  "ConnectionKey": "bannerlords-coop-v1",
+
+  "HeartbeatInterval": 2.0,
+  "HeartbeatMissTolerance": 5,
+  "NetworkTickRate": 20,
+
+  "VotingEnabled": true,
+  "VoteDefaultTimeoutSeconds": 8.0,
+
+  "UseLoopbackTransport": false
+}
