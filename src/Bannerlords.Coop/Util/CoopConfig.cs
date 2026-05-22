@@ -47,15 +47,36 @@ namespace Bannerlords.Coop.Util
 
         // ---------- voting (folded into M0; see ROADMAP M0.7) ----------
 
-        /// <summary>If false, every action that would normally vote (pause,
-        /// time-speed, settlement entry, menu-pause) goes through
-        /// unilaterally. Use during dev or when testing alone.</summary>
+        /// <summary>If false, vote requests still go over the wire (so peers
+        /// stay in sync) but the responder auto-accepts without showing a
+        /// popup. Useful for solo testing and dev workflow; in real play
+        /// leave this true.</summary>
         public bool VotingEnabled { get; set; } = true;
 
-        /// <summary>Default seconds non-initiators have to respond to a vote
-        /// before the configured default-result applies. Per-action overrides
-        /// live next to each vote site.</summary>
+        /// <summary>Fallback timeout when an action-specific override isn't
+        /// set.</summary>
         public float VoteDefaultTimeoutSeconds { get; set; } = 8f;
+
+        /// <summary>Timeout for time-control votes (pause / play / speed).
+        /// Short by design — quick decisions, low friction.</summary>
+        public float TimeControlVoteTimeoutSeconds { get; set; } = 5f;
+
+        /// <summary>Timeout for menu-pause votes when
+        /// <see cref="VoteOnMenuPause"/> is true.</summary>
+        public float MenuPauseVoteTimeoutSeconds { get; set; } = 8f;
+
+        /// <summary>Timeout for settlement-entry votes. Longer by default
+        /// because the consequences are bigger.</summary>
+        public float SettlementEnterVoteTimeoutSeconds { get; set; } = 15f;
+
+        /// <summary>When true, opening a world-freezing screen (encyclopedia,
+        /// inventory, character window) requests a vote; if accepted, both
+        /// peers pause. When false (default) the freeze is unconditionally
+        /// suppressed — every player browses menus without affecting the
+        /// shared world. Auto-unpause on menu close is not yet wired (see
+        /// ROADMAP M0.7 notes); after a yes-vote, the world stays paused
+        /// until someone explicitly resumes via spacebar.</summary>
+        public bool VoteOnMenuPause { get; set; } = false;
 
         public static CoopConfig Default => new CoopConfig();
     }

@@ -28,7 +28,7 @@ campaign loop to be deterministic.
 | Milestone | What it gives you | State |
 |-----------|-------------------|-------|
 | M0 | Two PCs handshake over UDP, second player appears in host's roster as a soldier, pause/time-speed syncs both ways | code complete, exit criteria pending on-hardware verification |
-| M0.7 | Voting UX (Gauntlet popup) + vote-gated pause/menu/settlement entry | not started |
+| M0.7 | Voting UX (InquiryData popup) + vote-gated time control (menu-pause optional) | code complete, exit criteria pending on-hardware verification |
 | M1 | Client sees a live mirror of the host's campaign map (read-only) | not started |
 | M2 | Client's soldier becomes a real Hero with skills/perks/inventory | not started |
 | M3 | Battles: client controls their hero on the host's battlefield | not started |

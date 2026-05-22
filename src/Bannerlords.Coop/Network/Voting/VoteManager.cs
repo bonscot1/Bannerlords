@@ -7,9 +7,6 @@ using Bannerlords.Coop.Util;
 using TaleWorlds.Core;
 using TaleWorlds.InputSystem;
 using TaleWorlds.Library;
-// Colors are intentionally not imported — Color presets vary across game
-// versions; we keep the M0 prompt text plain and add styling alongside the
-// Gauntlet popup in M0.7.
 
 namespace Bannerlords.Coop.Network.Voting
 {
@@ -19,9 +16,11 @@ namespace Bannerlords.Coop.Network.Voting
     /// handles both initiator and responder roles — the
     /// <see cref="PendingVote.IsLocalInitiator"/> flag distinguishes them.
     ///
-    /// Responder UI for M0 is text-mode: an <see cref="InformationManager"/>
-    /// message with [Y]/[N] hotkey polling. A proper Gauntlet popup lands in
-    /// M0.7 alongside the menu-pause vote integration.
+    /// Responder UI is a vanilla <see cref="InquiryData"/> popup with
+    /// Yes/No buttons; the Y/N hotkey poll is kept as a backup for
+    /// contexts where the inquiry doesn't render. When
+    /// <see cref="CoopConfig.VotingEnabled"/> is false the responder
+    /// auto-accepts without showing the popup (useful for solo testing).
     /// </summary>
     public sealed class VoteManager
     {
@@ -44,20 +43,32 @@ namespace Bannerlords.Coop.Network.Voting
         /// <summary>
         /// Convenience: vote to set <c>Campaign.TimeControlMode</c>. Returns
         /// true if the vote was initiated (or short-circuited to passed when
-        /// solo / voting disabled).
+        /// solo).
         /// </summary>
         public bool RequestSetTimeControl(WireTimeControl mode, string reason,
             Action onPassed, Action onFailed) =>
             TryStartVote(VoteAction.SetTimeControl, (byte)mode,
-                _config.VoteDefaultTimeoutSeconds, reason, onPassed, onFailed);
+                _config.TimeControlVoteTimeoutSeconds, reason, onPassed, onFailed);
+
+        /// <summary>
+        /// Convenience: vote to pause the world because a menu would normally
+        /// pause it locally. Only fires when
+        /// <see cref="CoopConfig.VoteOnMenuPause"/> is true.
+        /// </summary>
+        public bool RequestMenuPause(string reason,
+            Action onPassed, Action onFailed) =>
+            TryStartVote(VoteAction.MenuPause, (byte)WireTimeControl.Stop,
+                _config.MenuPauseVoteTimeoutSeconds, reason, onPassed, onFailed);
 
         public bool TryStartVote(VoteAction action, byte detail,
             float timeoutSeconds, string reason,
             Action onPassed, Action onFailed)
         {
-            // Solo or voting off: short-circuit to pass.
+            // Solo: short-circuit to pass. No peers means no one to vote;
+            // just apply locally. Broadcasts skip naturally since the peer
+            // list is empty.
             var liveRemotePeers = CountLiveRemotePeers();
-            if (_session.State != SessionState.Live || !_config.VotingEnabled || liveRemotePeers == 0)
+            if (_session.State != SessionState.Live || liveRemotePeers == 0)
             {
                 SafeInvoke(onPassed);
                 return true;
@@ -95,7 +106,7 @@ namespace Bannerlords.Coop.Network.Voting
                 Reason = _pending.Reason,
             }, SendReliability.Reliable);
 
-            DisplayInitiatorPrompt(_pending);
+            if (_config.VotingEnabled) DisplayInitiatorPrompt(_pending);
             Log.Info("VoteManager",
                 $"started vote id={id} action={action} detail={detail} timeout={timeout:F1}s reason='{_pending.Reason}'");
             return true;
@@ -108,8 +119,11 @@ namespace Bannerlords.Coop.Network.Voting
             if (_pending == null) return;
             _pending.ElapsedSeconds += dt;
 
-            // Responder side: poll Y/N until we've decided.
-            if (!_pending.IsLocalInitiator && !_pending.LocalResponseSent)
+            // Responder side: poll Y/N as a backup for contexts where the
+            // inquiry popup doesn't render. The popup's buttons hit the
+            // same SendLocalResponse path; LocalResponseSent guards
+            // double-fire.
+            if (!_pending.IsLocalInitiator && !_pending.LocalResponseSent && _config.VotingEnabled)
             {
                 if (Input.IsKeyPressed(InputKey.Y)) SendLocalResponse(true);
                 else if (Input.IsKeyPressed(InputKey.N)) SendLocalResponse(false);
@@ -157,7 +171,18 @@ namespace Bannerlords.Coop.Network.Voting
                 IsLocalInitiator = false,
                 Reason = pkt.Reason ?? string.Empty,
             };
-            DisplayResponderPrompt(_pending);
+
+            if (!_config.VotingEnabled)
+            {
+                // Voting disabled on this PC — auto-accept without UI.
+                // Keeps both peers in sync while skipping prompts.
+                Log.Info("VoteManager",
+                    $"voting disabled locally; auto-accepting vote {pkt.VoteId}");
+                SendLocalResponse(true);
+                return;
+            }
+
+            DisplayResponderInquiry(_pending);
             Log.Info("VoteManager",
                 $"received vote id={pkt.VoteId} action={(VoteAction)pkt.Action} from {from}");
         }
@@ -186,7 +211,7 @@ namespace Bannerlords.Coop.Network.Voting
             if (_pending == null || _pending.VoteId != pkt.VoteId) return;
             if (_pending.IsLocalInitiator)
             {
-                // Echoes of our own broadcast shouldn't loop back, but defensive guard.
+                // Our own broadcast shouldn't loop back; defensive guard.
                 return;
             }
             if (pkt.Passed) ApplyAction((VoteAction)pkt.Action, pkt.ActionDetail);
@@ -237,8 +262,11 @@ namespace Bannerlords.Coop.Network.Voting
                 Accept = accept,
                 ResponderPeerId = _session.LocalPeerId,
             }, SendReliability.Reliable);
-            InformationManager.DisplayMessage(new InformationMessage(
-                $"[Coop vote] You voted {(accept ? "YES" : "NO")} on vote #{_pending.VoteId}."));
+            if (_config.VotingEnabled)
+            {
+                InformationManager.DisplayMessage(new InformationMessage(
+                    $"[Coop vote] You voted {(accept ? "YES" : "NO")} on vote #{_pending.VoteId}."));
+            }
         }
 
         private void ApplyAction(VoteAction action, byte detail)
@@ -250,10 +278,17 @@ namespace Bannerlords.Coop.Network.Voting
                     case VoteAction.SetTimeControl:
                         Patches.TimeControlPatch.ApplyRemote((WireTimeControl)detail);
                         break;
-                    case VoteAction.EnterSettlement:
                     case VoteAction.MenuPause:
-                        // Reserved — wiring lands in M3 / M0.7 respectively.
-                        Log.Debug("VoteManager", $"action {action} not yet wired");
+                        // detail carries the WireTimeControl byte to set —
+                        // typically Stop. Auto-unpause on menu close is not
+                        // yet wired (see CoopConfig.VoteOnMenuPause notes).
+                        Patches.TimeControlPatch.ApplyRemote((WireTimeControl)detail);
+                        break;
+                    case VoteAction.EnterSettlement:
+                        // Reserved for M3 alongside settlement-state sync;
+                        // applying it locally without the rest of the world
+                        // catching up would just teleport the initiator.
+                        Log.Debug("VoteManager", "EnterSettlement action not yet wired");
                         break;
                 }
             }
@@ -274,7 +309,7 @@ namespace Bannerlords.Coop.Network.Voting
             try { a(); } catch (Exception ex) { Log.Error("VoteManager", ex); }
         }
 
-        // ---------- UI (text-mode placeholder) ----------
+        // ---------- UI ----------
 
         private static void DisplayInitiatorPrompt(PendingVote v)
         {
@@ -282,10 +317,38 @@ namespace Bannerlords.Coop.Network.Voting
                 $"[Coop vote #{v.VoteId}] You proposed: {v.Reason}. Waiting on peers ({v.TimeoutSeconds:F0}s)..."));
         }
 
-        private static void DisplayResponderPrompt(PendingVote v)
+        private void DisplayResponderInquiry(PendingVote v)
         {
-            InformationManager.DisplayMessage(new InformationMessage(
-                $"[Coop vote #{v.VoteId}] {v.Reason} — press [Y] to accept, [N] to reject ({v.TimeoutSeconds:F0}s, auto-NO on timeout)."));
+            var voteId = v.VoteId; // capture for closure stability
+            try
+            {
+                var inquiry = new InquiryData(
+                    titleText: $"Coop vote #{voteId}",
+                    text: $"{v.Reason}\n\nThe world keeps running until you decide. Auto-NO in ~{v.TimeoutSeconds:F0}s.",
+                    isAffirmativeOptionShown: true,
+                    isNegativeOptionShown: true,
+                    affirmativeText: "Accept (Y)",
+                    negativeText: "Reject (N)",
+                    affirmativeAction: () => RespondById(voteId, true),
+                    negativeAction: () => RespondById(voteId, false));
+                InformationManager.ShowInquiry(inquiry, pauseGameActiveState: false);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("VoteManager", ex);
+                // Fall back to the text-mode prompt so the user still knows
+                // a vote is in flight and can use the Y/N hotkeys.
+                InformationManager.DisplayMessage(new InformationMessage(
+                    $"[Coop vote #{v.VoteId}] {v.Reason} — press [Y] to accept, [N] to reject ({v.TimeoutSeconds:F0}s)."));
+            }
+        }
+
+        private void RespondById(ushort voteId, bool accept)
+        {
+            // Guard against stale popup clicks: only act if the in-flight
+            // vote is still this one and we haven't already responded.
+            if (_pending == null || _pending.VoteId != voteId) return;
+            SendLocalResponse(accept);
         }
 
         private static void DisplayResult(PendingVote v, bool passed)

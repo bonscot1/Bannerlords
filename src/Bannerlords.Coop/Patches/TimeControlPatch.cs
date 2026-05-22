@@ -1,6 +1,5 @@
 using Bannerlords.Coop.Network.Packets;
 using Bannerlords.Coop.Network.Session;
-using Bannerlords.Coop.Network.Transport;
 using Bannerlords.Coop.Util;
 using HarmonyLib;
 using TaleWorlds.CampaignSystem;
@@ -8,15 +7,18 @@ using TaleWorlds.CampaignSystem;
 namespace Bannerlords.Coop.Patches
 {
     /// <summary>
-    /// Synchronizes campaign time control across all peers. Postfix on
-    /// <c>Campaign.TimeControlMode</c> setter: when someone changes time
-    /// locally we broadcast; when a remote change arrives we apply it with
-    /// <see cref="_applyingRemote"/> set to suppress the rebroadcast.
-    ///
-    /// M0 limitation: this only catches changes that flow through the
-    /// <c>TimeControlMode</c> setter. Menu-induced pauses (encyclopedia,
-    /// inventory) may use a separate freeze flag; those will be hooked in M1
-    /// once the map mirror lands.
+    /// Routes local <c>Campaign.TimeControlMode</c> changes through the
+    /// vote system. When the player presses spacebar / changes speed in a
+    /// live coop session:
+    ///   1. The setter Prefix intercepts and requests a vote.
+    ///   2. If accepted, the initiator's onPassed callback sets the field
+    ///      with <see cref="_applyingRemote"/>=true so the Prefix lets the
+    ///      next call through.
+    ///   3. The other peer applies the same change via the VoteResult
+    ///      packet → <see cref="ApplyRemote"/> (also guarded by
+    ///      <see cref="_applyingRemote"/>).
+    /// Outside of a live session the Prefix returns true and original
+    /// vanilla behavior runs.
     /// </summary>
     public static class TimeControlPatch
     {
@@ -34,7 +36,7 @@ namespace Bannerlords.Coop.Patches
             {
                 _applyingRemote = true;
                 campaign.TimeControlMode = ToGame(mode);
-                Log.Debug("TimeControlPatch", $"applied remote {mode}");
+                Log.Debug("TimeControlPatch", $"applied {mode}");
             }
             finally
             {
@@ -44,24 +46,38 @@ namespace Bannerlords.Coop.Patches
 
         [HarmonyPatch(typeof(Campaign))]
         [HarmonyPatch("TimeControlMode", MethodType.Setter)]
-        public static class SetterPostfix
+        public static class SetterPrefix
         {
             // ReSharper disable once UnusedMember.Global
-            public static void Postfix(CampaignTimeControlMode value)
+            public static bool Prefix(CampaignTimeControlMode value)
             {
-                if (_applyingRemote) return;
+                if (_applyingRemote) return true; // re-entrance from ApplyRemote / onPassed
 
                 var session = CoopSession.Instance;
-                if (session == null) return;
-                if (session.State != SessionState.Live) return;
+                if (session == null || session.State != SessionState.Live) return true;
 
-                session.Broadcast(new TimeControlPacket
-                {
-                    Mode = ToWire(value),
-                    Sequence = session.NextTimeControlSequence(),
-                }, SendReliability.Reliable);
-
-                Log.Debug("TimeControlPatch", $"broadcast local change {value}");
+                var wireMode = ToWire(value);
+                var captured = value;
+                session.VoteManager.RequestSetTimeControl(
+                    mode: wireMode,
+                    reason: $"set time to {captured}",
+                    onPassed: () =>
+                    {
+                        var c = Campaign.Current;
+                        if (c == null) return;
+                        try
+                        {
+                            _applyingRemote = true;
+                            c.TimeControlMode = captured;
+                        }
+                        finally { _applyingRemote = false; }
+                        Log.Debug("TimeControlPatch", $"applied local {captured} after vote pass");
+                    },
+                    onFailed: () =>
+                    {
+                        Log.Info("TimeControlPatch", $"vote rejected; not applying {captured}");
+                    });
+                return false; // skip original — we'll reapply via onPassed if vote passes
             }
         }
 
