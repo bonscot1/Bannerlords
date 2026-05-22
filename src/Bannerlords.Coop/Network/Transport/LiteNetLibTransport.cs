@@ -153,14 +153,14 @@ namespace Bannerlords.Coop.Network.Transport
         private void HandlePeerConnected(NetPeer peer)
         {
             _peer = peer;
-            Log.Info("LiteNetLibTransport", $"peer connected: {peer.EndPoint}");
+            Log.Info("LiteNetLibTransport", $"peer connected: id={peer.Id}");
             OnPeerConnected?.Invoke(RemoteId);
         }
 
         private void HandlePeerDisconnected(NetPeer peer, DisconnectInfo info)
         {
             Log.Info("LiteNetLibTransport",
-                $"peer disconnected: {peer.EndPoint} reason={info.Reason}");
+                $"peer disconnected: id={peer.Id} reason={info.Reason}");
             _peer = null;
             OnPeerDisconnected?.Invoke(RemoteId);
         }
