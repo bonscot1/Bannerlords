@@ -22,6 +22,11 @@ namespace Bannerlords.Coop.Network.Packet
         // 0x20–0x2F: chat / misc
         Chat          = 0x20,
 
+        // 0x30–0x3F: voting (initiator -> peers, then result broadcast)
+        VoteRequest   = 0x30,
+        VoteResponse  = 0x31,
+        VoteResult    = 0x32,
+
         // 0x40–0x7F: gameplay sync (mode-agnostic) — reserved
         // 0x80–0xBF: companion-mode-specific  — reserved
         // 0xC0–0xFE: warband-mode-specific    — reserved

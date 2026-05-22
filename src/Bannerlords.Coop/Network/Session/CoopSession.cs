@@ -7,6 +7,7 @@ using Bannerlords.Coop.Network.Packet;
 using Bannerlords.Coop.Network.Packets;
 using Bannerlords.Coop.Network.Sync;
 using Bannerlords.Coop.Network.Transport;
+using Bannerlords.Coop.Network.Voting;
 using Bannerlords.Coop.Util;
 
 namespace Bannerlords.Coop.Network.Session
@@ -34,6 +35,7 @@ namespace Bannerlords.Coop.Network.Session
         private readonly PacketDispatcher _dispatcher = new PacketDispatcher();
         private readonly Dictionary<ulong, CoopPeer> _peers = new Dictionary<ulong, CoopPeer>();
         private readonly TickSynchronizer _ticks;
+        private readonly VoteManager _voteManager;
 
         private ITransport _transport;
         private ICoopMode _mode;
@@ -49,6 +51,7 @@ namespace Bannerlords.Coop.Network.Session
         public string LocalDisplayName { get; private set; } = "<unknown>";
         public CoopModeKind ModeKind => _mode?.Kind ?? _config.Mode;
         public CoopConfig Config => _config;
+        public VoteManager VoteManager => _voteManager;
 
         public IReadOnlyCollection<CoopPeer> Peers => _peers.Values;
         public uint NextTimeControlSequence() => unchecked(++_timeControlSeqOut);
@@ -58,6 +61,7 @@ namespace Bannerlords.Coop.Network.Session
         {
             _config = config ?? CoopConfig.Default;
             _ticks = new TickSynchronizer(_config);
+            _voteManager = new VoteManager(this, _config);
             WirePacketHandlers();
             Instance = this;
         }
@@ -141,6 +145,7 @@ namespace Bannerlords.Coop.Network.Session
             if (State == SessionState.Idle) return;
             _uptimeSeconds += dt;
             _transport?.Poll();
+            _voteManager.Tick(dt);
 
             if (_ticks.Advance(dt, _uptimeSeconds))
                 OnNetworkTick();
@@ -294,6 +299,9 @@ namespace Bannerlords.Coop.Network.Session
             _dispatcher.On<DisconnectPacket>(PacketId.Disconnect, HandleDisconnect);
             _dispatcher.On<HeartbeatPacket>(PacketId.Heartbeat, HandleHeartbeat);
             _dispatcher.On<TimeControlPacket>(PacketId.TimeControl, HandleTimeControl);
+            _dispatcher.On<VoteRequestPacket>(PacketId.VoteRequest, (peer, pkt) => _voteManager.OnVoteRequest(peer, pkt));
+            _dispatcher.On<VoteResponsePacket>(PacketId.VoteResponse, (peer, pkt) => _voteManager.OnVoteResponse(peer, pkt));
+            _dispatcher.On<VoteResultPacket>(PacketId.VoteResult, (peer, pkt) => _voteManager.OnVoteResult(peer, pkt));
         }
 
         private void HandleHandshake(CoopPeer peer, HandshakePacket pkt)

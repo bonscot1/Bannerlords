@@ -5,6 +5,7 @@ using Bannerlords.Coop.Patches;
 using Bannerlords.Coop.UI;
 using Bannerlords.Coop.Util;
 using Bannerlords.Coop.Network.Packets;
+using Bannerlords.Coop.Network.Voting;
 using TaleWorlds.MountAndBlade;
 
 namespace Bannerlords.Coop
@@ -108,6 +109,9 @@ namespace Bannerlords.Coop
             DisconnectPacket.RegisterFactory();
             HeartbeatPacket.RegisterFactory();
             TimeControlPacket.RegisterFactory();
+            VoteRequestPacket.RegisterFactory();
+            VoteResponsePacket.RegisterFactory();
+            VoteResultPacket.RegisterFactory();
         }
 
         /// <summary>

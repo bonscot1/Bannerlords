@@ -9,32 +9,76 @@ the previous milestone passes its exit criterion on a clean install.
 
 ## M0 — Handshake + global pause + soldier-join
 
-The smallest playable thing. Two players connect via Steam P2P, the second
-player's name shows up in the host's party roster as a generic troop, and
-either player pressing pause / changing time speed updates the other's
-clock.
+The smallest playable thing. Two players connect over UDP (IP-based join,
+no Steam), the second player's name shows up in the host's party roster
+as a generic troop, and either player pressing pause / changing time
+speed updates the other's clock.
 
 **Deliverables**
 - `CoopSession` state machine (Idle → Hosting / Connecting → Live).
-- `SteamLobby` wrapper around `SteamMatchmaking` (create, invite, join).
-- Packets: `Handshake`, `Welcome`, `Disconnect`, `Heartbeat`, `TimeControl`.
-- `TimeControlPatch` — Harmony postfix on `Campaign.SetTimeSpeed` /
-  `CampaignTimeControlMode` setter that broadcasts the new value and
-  short-circuits on inbound application (loop-back guarded).
+- `LiteNetLibTransport` — UDP transport via LiteNetLib (the same transport
+  the BannerlordCoop reference mod uses). Host listens on a configured
+  port; client connects to a configured address. Fixed peer IDs for M0
+  (host=1, client=2); dynamic assignment lands in M2 alongside
+  multi-client.
+- Packets: `Handshake`, `Welcome`, `Disconnect`, `Heartbeat`, `TimeControl`,
+  `VoteRequest`, `VoteResponse`, `VoteResult`.
+- `TimeControlPatch` — Harmony postfix on `Campaign.TimeControlMode`
+  setter that broadcasts the new value and short-circuits on inbound
+  application (loop-back guarded).
+- `GameStateManagerPatch` — Harmony prefix on
+  `GameStateManager.RegisterActiveStateDisableRequest` that suppresses
+  menu-induced world freezes while a session is live (encyclopedia,
+  inventory, character window no longer pause the world for the other
+  player).
+- `VoteManager` — protocol scaffolding for coop votes (initiator broadcasts
+  `VoteRequest`, peers respond, initiator broadcasts `VoteResult`).
+  Configurable per-action timeout. M0 ships the manager and a text-mode
+  responder prompt (`[Y]/[N]` hotkey poll via `InformationManager`); the
+  Gauntlet popup and the actual integration with pause/menu/settlement
+  call-sites lands in M0.7.
 - `SoldierAttachment` — when a client joins, host inserts a placeholder
   troop into `MainParty.MemberRoster` with the client's persona name.
 - `MainMenuHooks` — adds "Host coop game" / "Join coop game" entries.
+  M0 uses config-driven IP/port; a proper address-input dialog ships
+  with the M1 lobby screen.
 - CI workflow that runs `dotnet restore && dotnet build -c Release` on
   every PR.
 
 **Exit criterion**
 1. Mod loads on Bannerlord 1.2.12 without Harmony errors.
-2. Two real PCs handshake over Steam, log shows
+2. Two real PCs handshake over LiteNetLib, log shows
    `Handshake → Welcome → Live`.
-3. Client's Steam persona appears as a troop in host's party.
+3. Client's persona appears as a troop in host's party.
 4. Host hits spacebar → client's clock pauses within ~250 ms (and the
    reverse).
-5. Disconnect on either side cleanly tears down the session on the other.
+5. Opening encyclopedia/inventory on one client does NOT freeze the
+   other client's world.
+6. Disconnect on either side cleanly tears down the session on the other.
+
+---
+
+## M0.7 — Voting UX + integration
+
+The wire protocol exists in M0; M0.7 wires it into the actions players
+actually trigger and replaces the text-mode prompt with real UI.
+
+**Deliverables**
+- Gauntlet popup for the responder ("X wants to pause", Yes/No buttons,
+  countdown bar). Replaces M0's `InformationManager` placeholder.
+- Hook `TimeControlPatch` to route the local change through `VoteManager`
+  rather than broadcasting unconditionally.
+- Hook `GameStateManagerPatch` to (optionally) request a vote for
+  menu-pause instead of just suppressing.
+- Hook the settlement-enter path through `VoteManager` (groundwork for
+  M3+).
+- Per-action timeout overrides in `CoopConfig` (pause vs. settlement-
+  enter want different defaults).
+
+**Exit criterion**
+- Client presses spacebar; host sees the Gauntlet popup with a
+  countdown; pressing Y on host pauses both clients within one network
+  tick; pressing N keeps both unpaused.
 
 ---
 
@@ -104,6 +148,35 @@ modes, not for arbitrary live coop. This is by far the biggest milestone.
 
 ---
 
+## M3.5 — Combat Roles (Captain / Tactical Advisor)
+
+Mode-A polish for the battlefield: the host's hero is the player on the
+field; the client(s) can take a non-direct-combat role and still affect
+the fight meaningfully.
+
+**Deliverables**
+- Role selection in pre-battle screen: each non-host participant picks
+  **Captain** (assume command of a sub-formation, give orders via the
+  standard formation UI) or **Tactical Advisor** (no body on the field,
+  but markers + voice/ping commands visible to all).
+- Captain mode: the client owns a `Formation` for the duration of the
+  mission; their formation-order packets bypass the host's command UI
+  and apply directly.
+- Tactical Advisor mode: a top-down map view alongside the host's normal
+  camera; the advisor can drop pings (move-here, focus-fire-here,
+  retreat) that overlay on the host's HUD.
+- Both roles share the existing M3 mission-lifecycle / agent-state
+  packets; only the per-role command surface is new.
+
+**Exit criterion**
+- Client picks Captain, takes command of the host's cavalry formation,
+  orders a flank — formation moves under client's control while host
+  continues to lead the infantry.
+- Client picks Tactical Advisor, drops a ping on an archer line; ping is
+  visible to the host within one network tick.
+
+---
+
 ## M4 — Mode A feature-complete
 
 Client can act inside the host's party context: dialogues, quests, their
@@ -165,13 +238,16 @@ Real-time, simultaneous interaction between players' clans.
 
 ## Post-M6 (not scheduled)
 
-- Player count > 2 (Steam lobby cap is already 4, but the protocol and
-  authority model need re-validation past 2).
+- Player count > 2 (transport supports it; the protocol and authority
+  model need re-validation past 2 because of vote-tallying and per-hero
+  sync).
 - Host migration when the host disconnects.
 - Mod-compatibility surface: documented load-order rules, opt-out
   configuration for known-broken mods.
 - In-game settings UI (currently config is file-driven).
 - Optional dedicated-host build that runs the simulation headless.
+- Steam-rich-presence / friend-invite integration on top of the IP-based
+  transport (cosmetic — UDP is what actually carries the session).
 
 ---
 
@@ -181,7 +257,7 @@ Real-time, simultaneous interaction between players' clans.
   service.
 - **No anti-cheat.** Trust your party. Host has full authority and can,
   in principle, fake any state.
-- **No console / Game Pass support.** Steam-only.
+- **No console / Game Pass support.** PC (Win64) only.
 - **No automatic mod-compatibility guarantees.** Mods that patch the same
   campaign hooks we patch (time control, party tick, mission init) will
   conflict. Expect manual triage.
