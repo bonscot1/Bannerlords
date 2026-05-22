@@ -146,6 +146,8 @@ namespace Bannerlords.Coop.Network.Session
             _uptimeSeconds += dt;
             _transport?.Poll();
             _voteManager.Tick(dt);
+            try { _mode?.Tick(this, dt); }
+            catch (Exception ex) { Log.Error("CoopSession", ex); }
 
             if (_ticks.Advance(dt, _uptimeSeconds))
                 OnNetworkTick();

@@ -27,10 +27,12 @@ campaign loop to be deterministic.
 
 | Milestone | What it gives you | State |
 |-----------|-------------------|-------|
-| M0 | Two PCs handshake over Steam, second player appears in host's roster as a soldier, pause/time-speed syncs both ways | in progress |
+| M0 | Two PCs handshake over UDP, second player appears in host's roster as a soldier, pause/time-speed syncs both ways | code complete, exit criteria pending on-hardware verification |
+| M0.7 | Voting UX (Gauntlet popup) + vote-gated pause/menu/settlement entry | not started |
 | M1 | Client sees a live mirror of the host's campaign map (read-only) | not started |
 | M2 | Client's soldier becomes a real Hero with skills/perks/inventory | not started |
 | M3 | Battles: client controls their hero on the host's battlefield | not started |
+| M3.5 | Combat roles: Captain (commands a formation) or Tactical Advisor | not started |
 | M4 | Mode A feature-complete: dialog, quests, settlement actions | not started |
 | M5 | Mode B foundation: each player commands an independent party | not started |
 | M6 | Mode B feature-complete: real-time interaction between players | not started |
@@ -60,15 +62,17 @@ milestone breakdown and what's explicitly out of scope.
                                |
                  +-------------v---------------+
                  |    ITransport               |
-                 |  (Steam P2P / Loopback)     |
+                 |  (LiteNetLib UDP / Loopback)|
                  +-----------------------------+
 ```
 
-- **Transport:** Steam Networking Messages (session-based P2P). NAT punch
-  is handled by Steam; no port forwarding. A loopback transport exists for
-  in-process testing.
-- **Discovery / invite:** Steam Matchmaking lobby. Host creates a
-  friends-only lobby; client accepts a Steam invite.
+- **Transport:** LiteNetLib UDP (the same transport BannerlordCoop uses).
+  IP-based joins; no Steam dependency. NAT traversal is the user's problem
+  for now — a public IP, port forward, or a VPN works. A loopback transport
+  exists for in-process testing.
+- **Discovery / invite:** none — host and client configure address + port
+  in `coopconfig.json` and trigger via the main menu or F8/F9 hotkeys.
+  A proper lobby UI lands in M1.
 - **Protocol:** length-prefixed binary, byte packet IDs, little-endian.
   Versioned by `CoopConfig.ProtocolVersion`.
 - **Authority:** host owns world state, client owns input intent.
@@ -84,7 +88,8 @@ milestone breakdown and what's explicitly out of scope.
   only 1.2.12 is exercised right now.
 - [Bannerlord.Harmony](https://www.nexusmods.com/mountandblade2bannerlord/mods/2006)
   module installed and loaded above this one.
-- Steam running on both PCs (the mod uses Steam P2P / lobby APIs).
+- An open UDP path between the two PCs. Defaults to port 9000 — both
+  players configure the address + port in `coopconfig.json`.
 
 ## Building
 
@@ -96,41 +101,54 @@ dotnet restore Bannerlords.Coop.sln
 dotnet build -c Release Bannerlords.Coop.sln
 ```
 
-The compiled DLL lives at
-`src/Bannerlords.Coop/bin/Release/Bannerlords.Coop.dll`.
+The build drops a drop-in module layout under `dist/Bannerlords.Coop/`:
+
+```
+dist/Bannerlords.Coop/
+  SubModule.xml
+  coopconfig.sample.json
+  README.txt
+  bin/Win64_Shipping_Client/
+    Bannerlords.Coop.dll
+    LiteNetLib.dll
+    Newtonsoft.Json.dll
+    0Harmony.dll
+```
 
 ## Installing into the game
 
-Until we ship an installer, copy by hand:
+Copy the whole `dist/Bannerlords.Coop/` folder into your Bannerlord
+`Modules/` directory:
 
 ```
-<Bannerlord>/Modules/Bannerlords.Coop/
-  SubModule.xml                    (from src/Bannerlords.Coop/SubModule.xml)
-  bin/Win64_Shipping_Client/
-    Bannerlords.Coop.dll
-    0Harmony.dll
-    Steamworks.NET.dll
+<Bannerlord>/Modules/Bannerlords.Coop/   <- this whole folder
 ```
+
+Then copy `coopconfig.sample.json` → `coopconfig.json` next to
+`SubModule.xml` and edit the `JoinAddress` / `ListenPort` / `ConnectionKey`
+fields for your two-PC setup. Both players need their own
+`coopconfig.json` with matching ports/keys.
 
 Enable the module in the Bannerlord launcher's "Mods" tab. Order:
 **Native → SandBoxCore → Sandbox → StoryMode → Bannerlord.Harmony →
 Bannerlords.Coop**.
 
-## Hosting / joining (M0 target behavior)
-
-> Not yet implemented — this is the M0 acceptance test, kept here so
-> readers know what "done" looks like.
+## Hosting / joining (M0 behavior)
 
 1. Both players launch the game with the mod loaded.
-2. Host: main menu → "Host coop game". A Steam friends-only lobby is
-   created.
-3. Host: invite the other player through the Steam overlay
-   (Shift+Tab → invite).
-4. Client: accepts the invite. Main menu → "Join coop game" finishes the
-   handshake.
-5. Host: starts a sandbox campaign normally.
-6. Client's clock follows host's clock; client's name appears in host's
-   party roster as a soldier.
+2. Both players load a save OR start a new sandbox campaign. The host
+   needs an active campaign for the troop attach to fire.
+3. Host PC: press **F8** to start hosting (F8 again to stop).
+4. Client PC: press **F9** to connect to the host (F9 again to
+   disconnect). The host address comes from `coopconfig.json`.
+5. The host should see a new Imperial Recruit troop in their party
+   within a second of the handshake. Pause / time-speed changes now
+   sync to the other player.
+
+The main menu also has "Host coop game" / "Join coop game" entries,
+which work the same way as the hotkeys but trigger before any campaign
+is loaded — the soldier attach is then deferred until you load a save.
+The hotkeys-in-campaign flow is the recommended path.
 
 ## Logging
 

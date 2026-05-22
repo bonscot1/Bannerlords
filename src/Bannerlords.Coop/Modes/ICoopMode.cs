@@ -25,5 +25,10 @@ namespace Bannerlords.Coop.Modes
 
         /// <summary>Host-only: called when a peer leaves (clean or timeout).</summary>
         void OnPeerLeft(CoopSession session, CoopPeer peer);
+
+        /// <summary>Called every <c>CoopSession.Tick</c>. Most modes only
+        /// implement this to drain deferred work (e.g. attaches that ran
+        /// before a campaign existed).</summary>
+        void Tick(CoopSession session, float dt);
     }
 }

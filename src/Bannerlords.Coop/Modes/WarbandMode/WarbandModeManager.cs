@@ -23,5 +23,6 @@ namespace Bannerlords.Coop.Modes.WarbandMode
         public void Deactivate(CoopSession session) { }
         public void OnPeerJoined(CoopSession session, CoopPeer peer) { }
         public void OnPeerLeft(CoopSession session, CoopPeer peer) { }
+        public void Tick(CoopSession session, float dt) { }
     }
 }

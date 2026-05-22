@@ -14,6 +14,12 @@
     <!-- We don't want the SDK to copy the TaleWorlds reference DLLs into our
          output dir; the game provides them at runtime. -->
     <DisableImplicitFrameworkReferences>false</DisableImplicitFrameworkReferences>
+
+    <!-- Drop build output directly into the drop-in module layout so
+         `dist/Bannerlords.Coop/` can be copied straight into Bannerlord's
+         Modules/ directory. -->
+    <OutputPath>$(MSBuildThisFileDirectory)..\..\dist\Bannerlords.Coop\bin\Win64_Shipping_Client\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +32,11 @@
          dependency — joins are IP-based, see CoopConfig and
          LiteNetLibTransport. -->
     <PackageReference Include="LiteNetLib" Version="1.3.1" />
+
+    <!-- JSON config loader (coopconfig.json next to the module).
+         Newtonsoft is net472-compatible and the de-facto Bannerlord mod
+         standard. System.Text.Json is netcoreapp3+ so isn't an option. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 
     <!-- BUTR reference assemblies for TaleWorlds. ExcludeAssets=runtime so
          the game's real DLLs are used at runtime, not these reference-only
@@ -44,10 +55,8 @@
                       ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="SubModule.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+  <!-- SubModule.xml and coopconfig.sample.json live at the module root
+       (dist/Bannerlords.Coop/), version-controlled — they don't go into the
+       bin/ directory, so they're not copied from here. -->
 
 </Project>

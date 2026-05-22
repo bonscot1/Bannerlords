@@ -29,5 +29,13 @@ namespace Bannerlords.Coop.Modes.CompanionMode
             // mid-session; cleanup arrives with M2's real-hero persistence.
             Log.Info("CompanionMode", $"peer left: {peer} (placeholder troop retained)");
         }
+
+        public void Tick(CoopSession session, float dt)
+        {
+            // Drain any attaches that were queued before Campaign.Current
+            // existed (host pressed F8 before loading a save).
+            if (session.Role == Network.Session.CoopRole.Host)
+                SoldierAttachment.TryFlushPending();
+        }
     }
 }
