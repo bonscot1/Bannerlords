@@ -15,6 +15,10 @@
 
   "VotingEnabled": true,
   "VoteDefaultTimeoutSeconds": 8.0,
+  "TimeControlVoteTimeoutSeconds": 5.0,
+  "MenuPauseVoteTimeoutSeconds": 8.0,
+  "SettlementEnterVoteTimeoutSeconds": 15.0,
+  "VoteOnMenuPause": false,
 
   "UseLoopbackTransport": false
 }

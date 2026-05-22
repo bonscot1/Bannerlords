@@ -74,21 +74,39 @@ The wire protocol exists in M0; M0.7 wires it into the actions players
 actually trigger and replaces the text-mode prompt with real UI.
 
 **Deliverables**
-- Gauntlet popup for the responder ("X wants to pause", Yes/No buttons,
-  countdown bar). Replaces M0's `InformationManager` placeholder.
-- Hook `TimeControlPatch` to route the local change through `VoteManager`
-  rather than broadcasting unconditionally.
-- Hook `GameStateManagerPatch` to (optionally) request a vote for
-  menu-pause instead of just suppressing.
-- Hook the settlement-enter path through `VoteManager` (groundwork for
-  M3+).
-- Per-action timeout overrides in `CoopConfig` (pause vs. settlement-
-  enter want different defaults).
+- `InquiryData` popup for the responder (vanilla styled Yes/No + auto-NO
+  on timeout). Replaces M0's `InformationManager` placeholder. The Y/N
+  hotkey poll remains as a backup for contexts where the popup doesn't
+  render.
+- `TimeControlPatch` now routes local changes through `VoteManager`
+  (setter Prefix instead of Postfix-broadcast). Each spacebar /
+  speed-change press fires a vote; the change applies on both peers
+  only if accepted.
+- `GameStateManagerPatch` gains an optional vote path —
+  `CoopConfig.VoteOnMenuPause` (default false) toggles between "suppress
+  freeze" (default) and "vote to pause the world for the menu". Auto-
+  unpause on menu close is documented as deferred — after a yes-vote the
+  world stays paused until someone resumes via spacebar.
+- Per-action timeout overrides in `CoopConfig`:
+  `TimeControlVoteTimeoutSeconds` (5s), `MenuPauseVoteTimeoutSeconds`
+  (8s), `SettlementEnterVoteTimeoutSeconds` (15s).
+- Host state machine fixed: host transitions to `Live` on the first
+  successful peer handshake; falls back to `Hosting` when the last peer
+  leaves. Without this the host's vote path early-returned and spacebar
+  bypassed the vote.
+
+**Deferred to a later milestone**
+- Settlement-enter vote: blocked on M3's settlement-state sync. Voting
+  without the rest of the world catching up only teleports the
+  initiator, which is worse than nothing.
+- Auto-unpause when a menu closes after a yes-vote: needs an
+  `UnregisterActiveStateDisableRequest` companion patch and bookkeeping
+  to know who initiated the pause.
 
 **Exit criterion**
-- Client presses spacebar; host sees the Gauntlet popup with a
-  countdown; pressing Y on host pauses both clients within one network
-  tick; pressing N keeps both unpaused.
+- On the host PC, pressing spacebar shows an `InquiryData` popup on the
+  client PC; clicking Accept pauses both within one network tick;
+  clicking Reject keeps both unpaused. Same in reverse from the client.
 
 ---
 

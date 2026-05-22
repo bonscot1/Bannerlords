@@ -289,7 +289,13 @@ namespace Bannerlords.Coop.Network.Session
             {
                 // Host went away — we have nothing to do here.
                 Cleanup();
+                return;
             }
+            // Host: if every peer left, fall back to Hosting (transport stays
+            // listening; another client can still join). State change keeps
+            // vote / patch paths from treating a peer-less session as Live.
+            if (Role == CoopRole.Host && State == SessionState.Live && _peers.Count == 0)
+                State = SessionState.Hosting;
         }
 
         // ---------- packet handlers ----------
@@ -336,6 +342,10 @@ namespace Bannerlords.Coop.Network.Session
                 return;
             }
             peer.HandshakeComplete = true;
+            // Host transitions to Live on the first successful handshake.
+            // Multiple peers joining later keep the state at Live; we drop
+            // back to Hosting in DropPeer if every peer leaves.
+            if (State == SessionState.Hosting) State = SessionState.Live;
             Log.Info("CoopSession", $"handshake complete with {peer}");
             try { _mode?.OnPeerJoined(this, peer); } catch (Exception ex) { Log.Error("CoopSession", ex); }
         }
