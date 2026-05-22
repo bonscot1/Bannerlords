@@ -12,7 +12,7 @@ namespace Bannerlords.Coop.Network.Packets
     {
         Stop = 0,
         UnstoppablePlay = 1,
-        FastForward = 2,
+        StoppableFastForward = 2,
         StoppablePlay = 3,
         UnstoppableFastForward = 4,
         FastForwardStop = 5,

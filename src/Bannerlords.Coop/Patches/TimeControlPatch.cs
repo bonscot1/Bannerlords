@@ -73,7 +73,7 @@ namespace Bannerlords.Coop.Patches
             {
                 case CampaignTimeControlMode.Stop: return WireTimeControl.Stop;
                 case CampaignTimeControlMode.UnstoppablePlay: return WireTimeControl.UnstoppablePlay;
-                case CampaignTimeControlMode.FastForward: return WireTimeControl.FastForward;
+                case CampaignTimeControlMode.StoppableFastForward: return WireTimeControl.StoppableFastForward;
                 case CampaignTimeControlMode.StoppablePlay: return WireTimeControl.StoppablePlay;
                 case CampaignTimeControlMode.UnstoppableFastForward: return WireTimeControl.UnstoppableFastForward;
                 case CampaignTimeControlMode.FastForwardStop: return WireTimeControl.FastForwardStop;
@@ -87,7 +87,7 @@ namespace Bannerlords.Coop.Patches
             {
                 case WireTimeControl.Stop: return CampaignTimeControlMode.Stop;
                 case WireTimeControl.UnstoppablePlay: return CampaignTimeControlMode.UnstoppablePlay;
-                case WireTimeControl.FastForward: return CampaignTimeControlMode.FastForward;
+                case WireTimeControl.StoppableFastForward: return CampaignTimeControlMode.StoppableFastForward;
                 case WireTimeControl.StoppablePlay: return CampaignTimeControlMode.StoppablePlay;
                 case WireTimeControl.UnstoppableFastForward: return CampaignTimeControlMode.UnstoppableFastForward;
                 case WireTimeControl.FastForwardStop: return CampaignTimeControlMode.FastForwardStop;
