@@ -20,13 +20,12 @@
     <!-- Harmony for runtime patches. -->
     <PackageReference Include="Lib.Harmony" Version="2.3.3" PrivateAssets="all" />
 
-    <!-- Steam wrapper deferred: Steamworks.NET 20.x dropped net4x targets
-         and only ships netstandard2.1, which Bannerlord's net472 process
-         cannot consume. The net472-compatible alternative is
-         Facepunch.Steamworks 2.3.3, but it has a different API surface so
-         we're stubbing the Steam transport for now and will wire it in
-         with a follow-up commit. The loopback transport keeps the rest of
-         the M0 plumbing testable in the meantime. -->
+    <!-- UDP transport. LiteNetLib ships net4x-compatible assemblies and
+         is the same transport BannerlordCoop uses, so we know it survives
+         the game's runtime constraints. Steam is intentionally NOT a
+         dependency — joins are IP-based, see CoopConfig and
+         LiteNetLibTransport. -->
+    <PackageReference Include="LiteNetLib" Version="1.3.1" />
 
     <!-- BUTR reference assemblies for TaleWorlds. ExcludeAssets=runtime so
          the game's real DLLs are used at runtime, not these reference-only

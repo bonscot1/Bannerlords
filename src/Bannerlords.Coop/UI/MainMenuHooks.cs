@@ -8,25 +8,20 @@ using TaleWorlds.MountAndBlade;
 namespace Bannerlords.Coop.UI
 {
     /// <summary>
-    /// Adds "Host coop game" / "Join coop game" entries to the initial
-    /// state menu, and an in-overlay "Invite friend" trigger once hosting.
+    /// Adds "Host coop game" / "Join coop game" entries to the initial state
+    /// menu. M0 uses IP-based join: host listens on
+    /// <see cref="CoopConfig.ListenPort"/>; client connects to
+    /// <see cref="CoopConfig.JoinAddress"/>:<see cref="CoopConfig.JoinPort"/>.
+    /// A proper address-input dialog comes with the M1 lobby UI; until then
+    /// the join target is configured in CoopConfig.
     /// </summary>
     public static class MainMenuHooks
     {
         private static CoopSession _session;
-        private static SteamLobby _lobby;
 
-        public static void Install(CoopSession session, SteamLobby lobby)
+        public static void Install(CoopSession session)
         {
             _session = session;
-            _lobby = lobby;
-
-            if (_lobby != null)
-            {
-                _lobby.OnHostedLobbyReady += OnHostedLobbyReady;
-                _lobby.OnJoinedLobbyAsClient += OnJoinedLobbyAsClient;
-                _lobby.OnLobbyError += OnLobbyError;
-            }
 
             Module.CurrentModule.AddInitialStateOption(new InitialStateOption(
                 "Bannerlords.Coop.Host",
@@ -45,66 +40,32 @@ namespace Bannerlords.Coop.UI
             Log.Info("MainMenuHooks", "menu entries installed");
         }
 
-        private static string LocalPersona()
-        {
-            // TODO: replace with the Steam wrapper's persona-name call once
-            // SteamP2PTransport is wired (see that file for the open
-            // wrapper-choice question).
-            return "Player";
-        }
-
         // ---------- option handlers ----------
 
         private static void HostCoopGame()
         {
             Log.Info("MainMenuHooks", "host coop game selected");
-            if (_session == null || _lobby == null)
+            if (_session == null)
             {
-                Log.Error("MainMenuHooks", "session or lobby unavailable");
+                Log.Error("MainMenuHooks", "session unavailable");
                 return;
             }
-            if (!_session.StartHost(LocalPersona())) return;
-            _lobby.CreateLobby();
+            if (!_session.StartHost("Host")) return;
             InformationManager.DisplayMessage(new InformationMessage(
-                "Coop: hosting; invite a friend via the Steam overlay (Shift+Tab)."));
+                $"Coop: hosting on port {_session.Config.ListenPort}. Share your IP with your peer."));
         }
 
         private static void JoinCoopGame()
         {
             Log.Info("MainMenuHooks", "join coop game selected");
-            // For M0 the only join path is accepting an invite from the
-            // Steam overlay, which fires SteamLobby.OnJoinRequested
-            // automatically. The menu entry just tells the user that.
-            InformationManager.DisplayMessage(new InformationMessage(
-                "Coop: accept a Steam invite from your friend to join."));
-        }
-
-        // ---------- lobby callbacks ----------
-
-        private static void OnHostedLobbyReady(ulong lobbySteamId)
-        {
-            // Pop the invite overlay as a convenience when the host's lobby
-            // is ready.
-            _lobby?.OpenInviteOverlay();
-        }
-
-        private static void OnJoinedLobbyAsClient(ulong hostSteamId)
-        {
-            if (_session == null) return;
-            if (_session.State != SessionState.Idle)
+            if (_session == null)
             {
-                Log.Warn("MainMenuHooks", $"already in session ({_session.State}); ignoring lobby join");
+                Log.Error("MainMenuHooks", "session unavailable");
                 return;
             }
-            _session.JoinHost(hostSteamId, LocalPersona());
+            if (!_session.JoinHost("Client")) return;
             InformationManager.DisplayMessage(new InformationMessage(
-                "Coop: connecting to host..."));
-        }
-
-        private static void OnLobbyError(string reason)
-        {
-            InformationManager.DisplayMessage(new InformationMessage(
-                $"Coop: lobby error — {reason}"));
+                $"Coop: connecting to {_session.Config.JoinAddress}:{_session.Config.JoinPort}..."));
         }
     }
 }

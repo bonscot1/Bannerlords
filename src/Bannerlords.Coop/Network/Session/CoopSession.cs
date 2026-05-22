@@ -45,9 +45,10 @@ namespace Bannerlords.Coop.Network.Session
 
         public SessionState State { get; private set; } = SessionState.Idle;
         public CoopRole Role { get; private set; } = CoopRole.None;
-        public ulong LocalSteamId => _transport?.LocalId ?? 0;
+        public ulong LocalPeerId => _transport?.LocalId ?? 0;
         public string LocalDisplayName { get; private set; } = "<unknown>";
         public CoopModeKind ModeKind => _mode?.Kind ?? _config.Mode;
+        public CoopConfig Config => _config;
 
         public IReadOnlyCollection<CoopPeer> Peers => _peers.Values;
         public uint NextTimeControlSequence() => unchecked(++_timeControlSeqOut);
@@ -71,7 +72,7 @@ namespace Bannerlords.Coop.Network.Session
                 return false;
             }
             LocalDisplayName = localDisplayName;
-            _transport = CreateTransport();
+            _transport = CreateTransport(isHost: true);
             HookTransport();
             _transport.Start();
             if (!_transport.IsRunning)
@@ -83,11 +84,11 @@ namespace Bannerlords.Coop.Network.Session
             Role = CoopRole.Host;
             State = SessionState.Hosting;
             ActivateMode();
-            Log.Info("CoopSession", $"hosting as {LocalDisplayName} ({LocalSteamId})");
+            Log.Info("CoopSession", $"hosting as {LocalDisplayName} (id {LocalPeerId})");
             return true;
         }
 
-        public bool JoinHost(ulong hostSteamId, string localDisplayName)
+        public bool JoinHost(string localDisplayName)
         {
             if (State != SessionState.Idle)
             {
@@ -95,7 +96,7 @@ namespace Bannerlords.Coop.Network.Session
                 return false;
             }
             LocalDisplayName = localDisplayName;
-            _transport = CreateTransport();
+            _transport = CreateTransport(isHost: false);
             HookTransport();
             _transport.Start();
             if (!_transport.IsRunning)
@@ -106,16 +107,8 @@ namespace Bannerlords.Coop.Network.Session
             }
             Role = CoopRole.Client;
             State = SessionState.Connecting;
-
-            // Register the host as our (sole) peer. Handshake goes out now;
-            // SteamP2PTransport handles session establishment under the hood.
-            var hostPeer = new CoopPeer(hostSteamId, "<host>", isHost: true);
-            _peers[hostSteamId] = hostPeer;
-
-            var handshake = HandshakePacket.Local(LocalSteamId, LocalDisplayName);
-            Send(hostPeer, handshake, Transport.SendReliability.Reliable);
-
-            Log.Info("CoopSession", $"connecting to host {hostSteamId} as {LocalDisplayName}");
+            Log.Info("CoopSession",
+                $"connecting to {_config.JoinAddress}:{_config.JoinPort} as {LocalDisplayName}");
             return true;
         }
 
@@ -211,11 +204,16 @@ namespace Bannerlords.Coop.Network.Session
 
         // ---------- transport plumbing ----------
 
-        private ITransport CreateTransport()
+        private ITransport CreateTransport(bool isHost)
         {
             if (_config.UseLoopbackTransport)
-                return new LoopbackTransport(localId: 1);
-            return new SteamP2PTransport();
+                return new LoopbackTransport(localId: isHost ? LiteNetLibTransport.HostId : LiteNetLibTransport.ClientId);
+            return new LiteNetLibTransport(
+                isHost: isHost,
+                listenPort: _config.ListenPort,
+                connectAddress: _config.JoinAddress,
+                connectPort: _config.JoinPort,
+                connectionKey: _config.ConnectionKey);
         }
 
         private void HookTransport()
@@ -253,18 +251,25 @@ namespace Bannerlords.Coop.Network.Session
             catch (Exception ex) { Log.Error("CoopSession", ex); }
         }
 
-        private void OnTransportPeerConnected(ulong steamId)
+        private void OnTransportPeerConnected(ulong peerId)
         {
-            Log.Info("CoopSession", $"transport reports peer connected: {steamId}");
-            // We don't create a CoopPeer here yet — that happens on first
-            // packet, which gives us the display name from handshake. The
-            // raw transport event is informational only at this layer.
+            Log.Info("CoopSession", $"transport reports peer connected: {peerId}");
+            if (Role != CoopRole.Client) return;
+            // Client side: now that the UDP session is up, register the host
+            // peer and fire the app-level handshake. On the host side the
+            // CoopPeer is created lazily on the first inbound packet
+            // (in OnRawMessage), once we have a display name to attach.
+            if (_peers.ContainsKey(peerId)) return;
+            var hostPeer = new CoopPeer(peerId, "<host>", isHost: true);
+            _peers[peerId] = hostPeer;
+            var handshake = HandshakePacket.Local(LocalPeerId, LocalDisplayName);
+            Send(hostPeer, handshake, Transport.SendReliability.Reliable);
         }
 
-        private void OnTransportPeerDisconnected(ulong steamId)
+        private void OnTransportPeerDisconnected(ulong peerId)
         {
-            Log.Info("CoopSession", $"transport reports peer disconnected: {steamId}");
-            if (_peers.TryGetValue(steamId, out var peer))
+            Log.Info("CoopSession", $"transport reports peer disconnected: {peerId}");
+            if (_peers.TryGetValue(peerId, out var peer))
                 DropPeer(peer, DisconnectReason.Timeout);
         }
 
@@ -305,7 +310,7 @@ namespace Bannerlords.Coop.Network.Session
             var welcome = new WelcomePacket
             {
                 ProtocolVersion = CoopConfig.ProtocolVersion,
-                HostSteamId = LocalSteamId,
+                HostSteamId = LocalPeerId,
                 HostDisplayName = LocalDisplayName,
                 Accepted = accepted,
                 RejectReason = accepted

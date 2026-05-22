@@ -24,7 +24,6 @@ namespace Bannerlords.Coop
     public class SubModule : MBSubModuleBase
     {
         private CoopSession _session;
-        private SteamLobby _lobby;
         private bool _menuInstalled;
 
         // ---------- load ----------
@@ -44,8 +43,6 @@ namespace Bannerlords.Coop
 
                 var config = CoopConfig.Default;
                 _session = new CoopSession(config);
-                _lobby = new SteamLobby(config);
-                _lobby.Start();
             }
             catch (Exception ex)
             {
@@ -61,7 +58,7 @@ namespace Bannerlords.Coop
             if (_menuInstalled) return;
             try
             {
-                MainMenuHooks.Install(_session, _lobby);
+                MainMenuHooks.Install(_session);
                 _menuInstalled = true;
             }
             catch (Exception ex)
@@ -96,7 +93,6 @@ namespace Bannerlords.Coop
             try
             {
                 _session?.Disconnect(DisconnectReason.UserQuit, "module unloaded");
-                _lobby?.Dispose();
                 HarmonyBootstrap.Unapply();
             }
             catch (Exception ex) { Log.Error("SubModule", ex); }
